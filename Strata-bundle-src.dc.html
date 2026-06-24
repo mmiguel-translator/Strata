@@ -1,0 +1,1262 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+<meta name="ext-resource-dependency" content="https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json" data-resource-id="worldAtlas" />
+<meta name="ext-resource-dependency" content="https://unpkg.com/three@0.128.0/examples/js/lines/LineSegmentsGeometry.js" data-resource-id="lineSegGeom" />
+<meta name="ext-resource-dependency" content="https://unpkg.com/three@0.128.0/examples/js/lines/LineMaterial.js" data-resource-id="lineMat" />
+<meta name="ext-resource-dependency" content="https://unpkg.com/three@0.128.0/examples/js/lines/LineSegments2.js" data-resource-id="lineSegs2" />
+<template id="__bundler_thumbnail" data-bg-color="#0c0907">
+  <svg viewBox="0 0 800 800" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="400" cy="400" r="300" fill="#2c5152" opacity="0.7"/>
+    <circle cx="400" cy="400" r="300" fill="none" stroke="#c8b89a" stroke-width="2" opacity="0.5"/>
+    <ellipse cx="400" cy="400" rx="300" ry="110" fill="none" stroke="rgba(200,184,154,0.28)" stroke-width="1.5"/>
+    <ellipse cx="400" cy="400" rx="300" ry="200" fill="none" stroke="rgba(200,184,154,0.2)" stroke-width="1.5"/>
+    <line x1="400" y1="100" x2="400" y2="700" stroke="rgba(200,184,154,0.22)" stroke-width="1.5"/>
+    <line x1="100" y1="400" x2="700" y2="400" stroke="rgba(200,184,154,0.22)" stroke-width="1.5"/>
+    <ellipse cx="370" cy="370" rx="70" ry="55" fill="#cbb99a" opacity="0.8"/>
+    <ellipse cx="460" cy="420" rx="50" ry="40" fill="#d6c6a6" opacity="0.7"/>
+    <ellipse cx="290" cy="450" rx="40" ry="30" fill="#c5b390" opacity="0.75"/>
+    <text x="400" y="750" text-anchor="middle" font-family="Georgia,serif" font-size="52" fill="#ecdfc4" letter-spacing="14" opacity="0.9">STRATA</text>
+  </svg>
+</template>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500;1,600&family=Public+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  html,body{margin:0;padding:0;height:100%;background:#0c0907;overflow:hidden;}
+  *{box-sizing:border-box;}
+  ::selection{background:rgba(200,184,154,.3);}
+  @keyframes strataspin{to{transform:rotate(360deg);}}
+  @keyframes strsheet{from{transform:translateY(100%);}to{transform:translateY(0);}}
+  @keyframes strfade{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+  .str-scroll::-webkit-scrollbar{width:6px;}
+  .str-scroll::-webkit-scrollbar-thumb{background:rgba(200,184,154,.25);border-radius:3px;}
+  .str-lab{position:absolute;left:0;top:0;will-change:transform,opacity;white-space:nowrap;}
+</style>
+<script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
+<script src="https://unpkg.com/d3@7/dist/d3.min.js"></script>
+<script src="https://unpkg.com/topojson-client@3/dist/topojson-client.min.js"></script>
+<script src="strata-data.js"></script>
+</helmet>
+<div style="position:fixed;inset:0;overflow:hidden;font-family:'Public Sans',-apple-system,system-ui,sans-serif;background:radial-gradient(ellipse 75% 75% at 50% 44%, #271c12 0%, #160f0a 46%, #0a0705 100%);color:#e7d9be;-webkit-tap-highlight-color:transparent;">
+
+  <div ref="{{ mountRef }}" style="position:absolute;inset:0;cursor:grab;touch-action:none;"></div>
+  <div ref="{{ labelRef }}" style="position:absolute;inset:0;pointer-events:none;z-index:5;overflow:hidden;"></div>
+
+  <div style="position:absolute;inset:0;pointer-events:none;z-index:4;box-shadow:inset 0 0 220px 60px rgba(8,5,3,.7);"></div>
+
+  <!-- Title -->
+  <div style="position:absolute;top:24px;left:30px;z-index:10;pointer-events:none;">
+    <div style="font-family:'Playfair Display',serif;font-size:30px;line-height:1;letter-spacing:8px;color:#ecdfc4;font-weight:600;text-shadow:0 2px 10px rgba(0,0,0,.5);">STRATA</div>
+    <div style="font-size:10.5px;letter-spacing:3.5px;text-transform:uppercase;color:#9c8a6c;margin-top:6px;font-weight:500;">An Atlas of Peoples &amp; Power</div>
+  </div>
+
+  <!-- Breadcrumb -->
+  <sc-if value="{{ showCrumb }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;top:26px;left:50%;transform:translateX(-50%);z-index:11;display:flex;align-items:center;gap:4px;background:rgba(18,13,9,.62);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border:1px solid rgba(200,184,154,.2);border-radius:3px;padding:7px 8px 7px 14px;box-shadow:0 10px 30px rgba(0,0,0,.45);max-width:calc(100vw - 40px);">
+      <button onClick="{{ onHome }}" style="background:none;border:none;color:#9c8a6c;font-family:'Public Sans';font-size:12px;letter-spacing:1px;cursor:pointer;padding:4px 2px;font-weight:500;white-space:nowrap;" style-hover="color:#ecdfc4;">World</button>
+      <span style="color:#6b5a40;font-size:13px;margin:0 2px;">›</span>
+      <sc-if value="{{ isContinent }}" hint-placeholder-val="{{ true }}">
+        <span style="font-family:'Playfair Display',serif;font-size:15px;color:#ecdfc4;letter-spacing:.5px;padding-right:6px;white-space:nowrap;">{{ activeContinent }}</span>
+      </sc-if>
+      <sc-if value="{{ isCountry }}" hint-placeholder-val="{{ false }}">
+        <button onClick="{{ onContinentCrumb }}" style="background:none;border:none;color:#9c8a6c;font-family:'Public Sans';font-size:12px;letter-spacing:1px;cursor:pointer;padding:4px 2px;font-weight:500;white-space:nowrap;" style-hover="color:#ecdfc4;">{{ activeContinent }}</button>
+        <span style="color:#6b5a40;font-size:13px;margin:0 2px;">›</span>
+        <span style="font-family:'Playfair Display',serif;font-size:15px;color:#ecdfc4;letter-spacing:.5px;padding-right:6px;white-space:nowrap;max-width:240px;overflow:hidden;text-overflow:ellipsis;">{{ countryTitle }}</span>
+      </sc-if>
+      <button onClick="{{ onBack }}" style="background:rgba(200,184,154,.1);border:1px solid rgba(200,184,154,.22);color:#c8b89a;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;padding:6px 12px;border-radius:2px;font-weight:600;margin-left:4px;white-space:nowrap;" style-hover="background:rgba(200,184,154,.2);">← Back</button>
+    </div>
+  </sc-if>
+
+  <!-- Margin info panel (desktop) -->
+  <sc-if value="{{ showPanel }}" hint-placeholder-val="{{ false }}">
+    <div class="str-scroll" style="position:absolute;left:30px;bottom:30px;width:336px;max-height:62vh;overflow:auto;z-index:9;background:linear-gradient(158deg,rgba(38,28,19,.93),rgba(20,14,9,.95));border:1px solid rgba(200,184,154,.22);border-radius:3px;padding:22px 24px 24px;box-shadow:0 22px 55px rgba(0,0,0,.55);animation:strfade .45s ease both;">
+      <div style="font-size:9.5px;letter-spacing:3px;text-transform:uppercase;color:#b0935a;font-weight:600;">{{ panelKicker }}</div>
+      <div style="font-family:'Playfair Display',serif;font-size:27px;line-height:1.05;color:#ecdfc4;font-weight:600;margin-top:3px;">{{ panelTitle }}</div>
+      <div style="height:1px;background:linear-gradient(90deg,rgba(200,184,154,.55),rgba(200,184,154,0));margin:15px 0 17px;"></div>
+      <div style="margin-bottom:16px;">
+        <div style="font-size:9.5px;letter-spacing:2px;text-transform:uppercase;color:#b0935a;font-weight:600;margin-bottom:6px;">Faith</div>
+        <div style="font-size:12.5px;line-height:1.6;color:#cdc1aa;">{{ panelRelig }}</div>
+      </div>
+      <div style="margin-bottom:16px;">
+        <div style="font-size:9.5px;letter-spacing:2px;text-transform:uppercase;color:#b0935a;font-weight:600;margin-bottom:6px;">Peoples</div>
+        <div style="font-size:12.5px;line-height:1.6;color:#cdc1aa;">{{ panelEthni }}</div>
+      </div>
+      <div>
+        <div style="font-size:9.5px;letter-spacing:2px;text-transform:uppercase;color:#b0935a;font-weight:600;margin-bottom:6px;">Power</div>
+        <div style="font-size:12.5px;line-height:1.6;color:#cdc1aa;">{{ panelIdeo }}</div>
+      </div>
+      <div style="margin-top:16px;font-size:11px;color:#7a684c;letter-spacing:.3px;">{{ panelHint }}</div>
+    </div>
+  </sc-if>
+
+  <!-- Province loading toast -->
+  <sc-if value="{{ regionToast }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;top:78px;left:50%;transform:translateX(-50%);z-index:11;display:flex;align-items:center;gap:10px;background:rgba(18,13,9,.74);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border:1px solid rgba(200,184,154,.2);border-radius:20px;padding:7px 16px 7px 12px;box-shadow:0 10px 30px rgba(0,0,0,.45);">
+      <div style="width:14px;height:14px;border:2px solid rgba(200,184,154,.25);border-top-color:#c8b89a;border-radius:50%;animation:strataspin .9s linear infinite;"></div>
+      <span style="font-size:11.5px;letter-spacing:.5px;color:#cdbf9f;">Charting provinces…</span>
+    </div>
+  </sc-if>
+
+  <!-- Desktop tooltip (country / region) -->
+  <sc-if value="{{ showTip }}" hint-placeholder-val="{{ false }}">
+    <div style="{{ tipStyle }}">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;">
+        <div>
+          <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#b0935a;font-weight:600;margin-bottom:3px;">{{ detailKindLabel }}</div>
+          <div style="font-family:'Playfair Display',serif;font-size:21px;line-height:1.1;color:#f0e4ca;font-weight:600;">{{ detailName }}</div>
+        </div>
+        <button onClick="{{ onCloseDetail }}" style="background:none;border:none;color:#8a7a5c;font-size:18px;line-height:1;cursor:pointer;padding:2px 2px 2px 6px;margin-top:1px;flex:none;" style-hover="color:#ecdfc4;">×</button>
+      </div>
+      <div style="height:1px;background:linear-gradient(90deg,rgba(200,184,154,.5),rgba(200,184,154,0));margin:11px 0 13px;"></div>
+      <sc-if value="{{ detailLoading }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;align-items:center;gap:11px;padding:10px 0 14px;">
+          <div style="width:18px;height:18px;border:2px solid rgba(200,184,154,.22);border-top-color:#c8b89a;border-radius:50%;animation:strataspin .9s linear infinite;flex:none;"></div>
+          <div style="font-family:'Playfair Display',serif;font-style:italic;font-size:14px;color:#cdbf9f;">Charting this region’s 2026 profile…</div>
+        </div>
+      </sc-if>
+      <sc-if value="{{ detailReady }}" hint-placeholder-val="{{ false }}">
+        <div>
+          <div style="margin-bottom:13px;">
+            <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#b0935a;font-weight:600;margin-bottom:5px;">Faith</div>
+            <div style="font-size:12px;line-height:1.55;color:#d2c6af;">{{ dRelig }}</div>
+          </div>
+          <div style="margin-bottom:13px;">
+            <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#b0935a;font-weight:600;margin-bottom:5px;">Peoples</div>
+            <div style="font-size:12px;line-height:1.55;color:#d2c6af;">{{ dEthni }}</div>
+          </div>
+          <div>
+            <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#b0935a;font-weight:600;margin-bottom:5px;">Power</div>
+            <div style="font-size:12px;line-height:1.55;color:#d2c6af;">{{ dIdeo }}</div>
+          </div>
+        </div>
+      </sc-if>
+    </div>
+  </sc-if>
+
+  <!-- Mobile bottom sheet -->
+  <sc-if value="{{ showSheet }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ onCloseDetail }}" style="position:fixed;inset:0;z-index:29;background:rgba(8,5,3,.45);animation:strfade .25s ease;"></div>
+    <div class="str-scroll" style="position:fixed;left:0;right:0;bottom:0;z-index:30;background:linear-gradient(160deg,rgba(40,29,20,.98),rgba(22,15,10,.99));border-top:1px solid rgba(200,184,154,.28);border-radius:16px 16px 0 0;padding:10px 22px calc(26px + env(safe-area-inset-bottom));max-height:74vh;overflow:auto;box-shadow:0 -16px 50px rgba(0,0,0,.6);animation:strsheet .34s cubic-bezier(.2,.75,.2,1);">
+      <div style="width:38px;height:4px;border-radius:2px;background:rgba(200,184,154,.32);margin:6px auto 16px;"></div>
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
+        <div>
+          <div style="font-size:9.5px;letter-spacing:2px;text-transform:uppercase;color:#b0935a;font-weight:600;">{{ detailKindLabel }}</div>
+          <div style="font-family:'Playfair Display',serif;font-size:25px;line-height:1.1;color:#f0e4ca;font-weight:600;margin-top:2px;">{{ detailName }}</div>
+        </div>
+        <button onClick="{{ onCloseDetail }}" style="background:rgba(200,184,154,.1);border:1px solid rgba(200,184,154,.2);color:#c8b89a;font-size:20px;line-height:1;cursor:pointer;width:34px;height:34px;border-radius:50%;flex:none;">×</button>
+      </div>
+      <div style="height:1px;background:linear-gradient(90deg,rgba(200,184,154,.5),rgba(200,184,154,0));margin:15px 0 17px;"></div>
+      <sc-if value="{{ detailLoading }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;align-items:center;gap:12px;padding:6px 0 16px;">
+          <div style="width:20px;height:20px;border:2px solid rgba(200,184,154,.22);border-top-color:#c8b89a;border-radius:50%;animation:strataspin .9s linear infinite;flex:none;"></div>
+          <div style="font-family:'Playfair Display',serif;font-style:italic;font-size:15px;color:#cdbf9f;">Charting this region’s 2026 profile…</div>
+        </div>
+      </sc-if>
+      <sc-if value="{{ detailReady }}" hint-placeholder-val="{{ false }}">
+        <div>
+          <div style="margin-bottom:17px;">
+            <div style="font-size:9.5px;letter-spacing:2px;text-transform:uppercase;color:#b0935a;font-weight:600;margin-bottom:6px;">Faith</div>
+            <div style="font-size:14px;line-height:1.6;color:#d2c6af;">{{ dRelig }}</div>
+          </div>
+          <div style="margin-bottom:17px;">
+            <div style="font-size:9.5px;letter-spacing:2px;text-transform:uppercase;color:#b0935a;font-weight:600;margin-bottom:6px;">Peoples</div>
+            <div style="font-size:14px;line-height:1.6;color:#d2c6af;">{{ dEthni }}</div>
+          </div>
+          <div>
+            <div style="font-size:9.5px;letter-spacing:2px;text-transform:uppercase;color:#b0935a;font-weight:600;margin-bottom:6px;">Power</div>
+            <div style="font-size:14px;line-height:1.6;color:#d2c6af;">{{ dIdeo }}</div>
+          </div>
+        </div>
+      </sc-if>
+    </div>
+  </sc-if>
+
+  <!-- Hint -->
+  <div style="position:absolute;bottom:26px;right:30px;z-index:8;text-align:right;pointer-events:none;font-size:11px;letter-spacing:.5px;color:#7a684c;line-height:1.7;">
+    <div>{{ hintLine }}</div>
+  </div>
+
+  <!-- Loading -->
+  <sc-if value="{{ loading }}" hint-placeholder-val="{{ true }}">
+    <div style="position:absolute;inset:0;z-index:40;display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(ellipse at 50% 45%,#271c12 0%,#0a0705 75%);">
+      <div style="width:44px;height:44px;border:3px solid rgba(200,184,154,.2);border-top-color:#c8b89a;border-radius:50%;animation:strataspin 1s linear infinite;"></div>
+      <div style="margin-top:20px;font-family:'Playfair Display',serif;font-size:18px;color:#cdbf9f;letter-spacing:1.5px;font-style:italic;">Charting the world…</div>
+    </div>
+  </sc-if>
+
+  <!-- Error -->
+  <sc-if value="{{ error }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;inset:0;z-index:41;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:30px;background:radial-gradient(ellipse at 50% 45%,#2a1812 0%,#0a0705 75%);">
+      <div style="font-family:'Playfair Display',serif;font-size:22px;color:#e0caa0;">The atlas could not be drawn</div>
+      <div style="margin-top:10px;font-size:13px;color:#9c8a6c;max-width:380px;line-height:1.6;">{{ error }}</div>
+    </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const REGIONS = {
+  "Europe":["France","Germany","Spain","Italy","United Kingdom","Portugal","Netherlands","Belgium","Switzerland","Austria","Poland","Sweden","Norway","Denmark","Finland","Ireland","Greece","Czechia","Czech Rep.","Hungary","Romania","Bulgaria","Serbia","Republic of Serbia","Croatia","Ukraine","Belarus","Slovakia","Slovenia","Lithuania","Latvia","Estonia","Moldova","Albania","Macedonia","North Macedonia","Bosnia and Herz.","Kosovo","Montenegro","Iceland","Luxembourg","Cyprus","N. Cyprus"],
+  "Middle East":["Turkey","Iran","Iraq","Saudi Arabia","Syria","Jordan","Lebanon","Israel","Palestine","Yemen","Oman","United Arab Emirates","Kuwait","Qatar","Bahrain","Azerbaijan"],
+  "Asia":["China","India","Japan","South Korea","North Korea","Indonesia","Pakistan","Bangladesh","Vietnam","Thailand","Philippines","Malaysia","Myanmar","Afghanistan","Nepal","Sri Lanka","Kazakhstan","Uzbekistan","Turkmenistan","Kyrgyzstan","Tajikistan","Mongolia","Cambodia","Laos","Bhutan","Armenia","Georgia","Taiwan","Brunei","Timor-Leste","Russia"],
+  "Africa":["Nigeria","Egypt","Ethiopia","South Africa","Kenya","Dem. Rep. Congo","Tanzania","United Republic of Tanzania","Algeria","Morocco","Tunisia","Libya","Sudan","S. Sudan","South Sudan","Ghana","Ivory Coast","Côte d'Ivoire","Angola","Mozambique","Cameroon","Uganda","Zambia","Zimbabwe","Senegal","Mali","Mauritania","Niger","Chad","Somalia","Madagascar","Rwanda","Burundi","Botswana","Namibia","Gabon","Congo","Republic of the Congo","Benin","Togo","Burkina Faso","Guinea","Sierra Leone","Liberia","Gambia","Guinea-Bissau","Eritrea","Djibouti","Eq. Guinea","Lesotho","eSwatini","Swaziland","Malawi","Central African Rep.","Somaliland","W. Sahara"],
+  "North America":["United States of America","Canada","Mexico","Guatemala","Cuba","Honduras","Nicaragua","Panama","Costa Rica","Dominican Rep.","Haiti","Jamaica","Bahamas","The Bahamas","Belize","Trinidad and Tobago","El Salvador","Greenland","Puerto Rico"],
+  "South America":["Brazil","Argentina","Colombia","Peru","Venezuela","Chile","Ecuador","Bolivia","Paraguay","Uruguay","Guyana","Suriname","Falkland Is."],
+  "Oceania":["Australia","New Zealand","Papua New Guinea","Fiji","Vanuatu","Solomon Is.","New Caledonia"],
+  "Antarctica":["Antarctica","Fr. S. Antarctic Lands"]
+};
+const COUNTRY_CONTINENT = {};
+for (const k in REGIONS) for (const n of REGIONS[k]) COUNTRY_CONTINENT[n] = k;
+
+const DATA_ALIAS = {
+  "Côte d'Ivoire":"Ivory Coast","Czech Rep.":"Czechia","North Macedonia":"Macedonia",
+  "Swaziland":"eSwatini","South Sudan":"S. Sudan","Republic of the Congo":"Congo",
+  "Republic of Serbia":"Serbia","United Republic of Tanzania":"Tanzania","The Bahamas":"Bahamas"
+};
+
+// Country name -> ISO3 (for geoBoundaries admin-1 fetch). Covers every country in REGIONS.
+const NAME_ISO3 = {
+  "France":"FRA","Germany":"DEU","Spain":"ESP","Italy":"ITA","United Kingdom":"GBR","Portugal":"PRT","Netherlands":"NLD","Belgium":"BEL","Switzerland":"CHE","Austria":"AUT","Poland":"POL","Sweden":"SWE","Norway":"NOR","Denmark":"DNK","Finland":"FIN","Ireland":"IRL","Greece":"GRC","Czechia":"CZE","Czech Rep.":"CZE","Hungary":"HUN","Romania":"ROU","Bulgaria":"BGR","Serbia":"SRB","Republic of Serbia":"SRB","Croatia":"HRV","Ukraine":"UKR","Belarus":"BLR","Slovakia":"SVK","Slovenia":"SVN","Lithuania":"LTU","Latvia":"LVA","Estonia":"EST","Moldova":"MDA","Albania":"ALB","Macedonia":"MKD","North Macedonia":"MKD","Bosnia and Herz.":"BIH","Kosovo":"XKX","Montenegro":"MNE","Iceland":"ISL","Luxembourg":"LUX","Cyprus":"CYP",
+  "Turkey":"TUR","Iran":"IRN","Iraq":"IRQ","Saudi Arabia":"SAU","Syria":"SYR","Jordan":"JOR","Lebanon":"LBN","Israel":"ISR","Palestine":"PSE","Yemen":"YEM","Oman":"OMN","United Arab Emirates":"ARE","Kuwait":"KWT","Qatar":"QAT","Bahrain":"BHR","Azerbaijan":"AZE",
+  "China":"CHN","India":"IND","Japan":"JPN","South Korea":"KOR","North Korea":"PRK","Indonesia":"IDN","Pakistan":"PAK","Bangladesh":"BGD","Vietnam":"VNM","Thailand":"THA","Philippines":"PHL","Malaysia":"MYS","Myanmar":"MMR","Afghanistan":"AFG","Nepal":"NPL","Sri Lanka":"LKA","Kazakhstan":"KAZ","Uzbekistan":"UZB","Turkmenistan":"TKM","Kyrgyzstan":"KGZ","Tajikistan":"TJK","Mongolia":"MNG","Cambodia":"KHM","Laos":"LAO","Bhutan":"BTN","Armenia":"ARM","Georgia":"GEO","Taiwan":"TWN","Brunei":"BRN","Timor-Leste":"TLS","Russia":"RUS",
+  "Nigeria":"NGA","Egypt":"EGY","Ethiopia":"ETH","South Africa":"ZAF","Kenya":"KEN","Dem. Rep. Congo":"COD","Tanzania":"TZA","United Republic of Tanzania":"TZA","Algeria":"DZA","Morocco":"MAR","Tunisia":"TUN","Libya":"LBY","Sudan":"SDN","S. Sudan":"SSD","South Sudan":"SSD","Ghana":"GHA","Ivory Coast":"CIV","Côte d'Ivoire":"CIV","Angola":"AGO","Mozambique":"MOZ","Cameroon":"CMR","Uganda":"UGA","Zambia":"ZMB","Zimbabwe":"ZWE","Senegal":"SEN","Mali":"MLI","Mauritania":"MRT","Niger":"NER","Chad":"TCD","Somalia":"SOM","Madagascar":"MDG","Rwanda":"RWA","Burundi":"BDI","Botswana":"BWA","Namibia":"NAM","Gabon":"GAB","Congo":"COG","Republic of the Congo":"COG","Benin":"BEN","Togo":"TGO","Burkina Faso":"BFA","Guinea":"GIN","Sierra Leone":"SLE","Liberia":"LBR","Gambia":"GMB","Guinea-Bissau":"GNB","Eritrea":"ERI","Djibouti":"DJI","Eq. Guinea":"GNQ","Lesotho":"LSO","eSwatini":"SWZ","Swaziland":"SWZ","Malawi":"MWI","Central African Rep.":"CAF","W. Sahara":"ESH",
+  "United States of America":"USA","Canada":"CAN","Mexico":"MEX","Guatemala":"GTM","Cuba":"CUB","Honduras":"HND","Nicaragua":"NIC","Panama":"PAN","Costa Rica":"CRI","Dominican Rep.":"DOM","Haiti":"HTI","Jamaica":"JAM","Bahamas":"BHS","The Bahamas":"BHS","Belize":"BLZ","Trinidad and Tobago":"TTO","El Salvador":"SLV","Greenland":"GRL","Puerto Rico":"PRI",
+  "Brazil":"BRA","Argentina":"ARG","Colombia":"COL","Peru":"PER","Venezuela":"VEN","Chile":"CHL","Ecuador":"ECU","Bolivia":"BOL","Paraguay":"PRY","Uruguay":"URY","Guyana":"GUY","Suriname":"SUR","Falkland Is.":"FLK",
+  "Australia":"AUS","New Zealand":"NZL","Papua New Guinea":"PNG","Fiji":"FJI","Vanuatu":"VUT","Solomon Is.":"SLB","New Caledonia":"NCL"
+};
+
+const PARCHMENT = ["#cbb99a","#d6c6a6","#c5b390","#dcceb0","#cebd9b","#d2c1a0","#c8b694"];
+
+// geoBoundaries occasionally serves names whose UTF-8 bytes were read as Latin-1 upstream,
+// so "Bragança" arrives as "BraganÃ§a" (and renders a stray Ã + a tombstone for the
+// unprintable byte). decodeURIComponent(escape(...)) reverses that double-encoding; we only
+// attempt it when the tell-tale mojibake markers are present so clean names pass through.
+function fixMojibake(s){
+  if(!s || !/[ÃÂ][\x80-\xBF]/.test(s)) return s;
+  try{ return decodeURIComponent(escape(s)); }catch(_){ return s; }
+}
+
+class Component extends DCLogic {
+  state = { ready:false, error:null, view:'world', activeContinent:null, activeCountry:null, detail:null, isTouch:false, regionLoading:false, regionErr:null };
+
+  componentDidMount(){
+    this._mounted = true;
+    this._last = performance.now();
+    this.lastInteract = performance.now();
+    this.vel = {x:0,y:0};
+    this.pointers = new Map();
+    this.pinchDist = 0;
+    this.hiNames = new Set();
+    this.hiRegion = null;
+    this.provinces = null;
+    this.provCache = {};
+    this.regionLabels = [];
+    this.regionData = {};
+    this._lastHover = 0;
+    const touch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+    this.isTouch = touch;
+    this.setState({ isTouch: touch });
+    this._animate = this.animate.bind(this);
+    this.boot();
+  }
+  componentWillUnmount(){
+    this._mounted = false;
+    cancelAnimationFrame(this._raf);
+    window.removeEventListener('resize', this._onResize);
+  }
+
+  refs(){
+    if(!this._mountRef) this._mountRef = (el)=>{ this.mountEl = el; };
+    if(!this._labelRef) this._labelRef = (el)=>{ this.labelEl = el; };
+  }
+
+  async boot(){
+    const t0 = Date.now();
+    while((!window.THREE || !window.d3 || !window.topojson || !window.ATLAS_DATA) && Date.now()-t0 < 18000){
+      await new Promise(r=>setTimeout(r,90));
+    }
+    if(!window.THREE || !window.d3 || !window.topojson || !window.ATLAS_DATA){
+      this.setState({ error:'Required libraries failed to load. Check your connection and reload.' }); return;
+    }
+    let topo;
+    try{
+      const res = await fetch((window.__resources && window.__resources.worldAtlas) || 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json');
+      if(!res.ok) throw new Error('http '+res.status);
+      topo = await res.json();
+    }catch(e){
+      this.setState({ error:'World map data could not be retrieved.' }); return;
+    }
+    if(!this._mounted) return;
+    this.geo = window.topojson.feature(topo, topo.objects.countries);
+    let waited = 0;
+    while(!this.mountEl && waited < 3000){ await new Promise(r=>setTimeout(r,60)); waited+=60; }
+    this.prepData();
+    this.buildTexture();
+    this.initThree();
+    await this.buildLabels();
+    this.setState({ ready:true });
+    this._last = performance.now();
+    this.renderFrame();
+    this._raf = requestAnimationFrame(this._animate);
+  }
+
+  geoDir(lon,lat){
+    const u=(lon+180)/360, v=(90-lat)/180, phi=u*Math.PI*2, th=v*Math.PI;
+    return new window.THREE.Vector3(-Math.cos(phi)*Math.sin(th), Math.cos(th), Math.sin(phi)*Math.sin(th));
+  }
+
+  prepData(){
+    const d3 = window.d3, THREE = window.THREE;
+    this.features = []; this.byName = {};
+    for(const f of this.geo.features){
+      const name = f.properties.name;
+      let cont = COUNTRY_CONTINENT[name];
+      const c = this.labelPoint(f);
+      const rec = {
+        name, feature:f, continent: cont || null,
+        lon:c[0], lat:c[1], dir:this.geoDir(c[0],c[1]),
+        area:d3.geoArea(f), bounds:d3.geoBounds(f),
+        fill: PARCHMENT[Math.abs(this.hash(name))%PARCHMENT.length]
+      };
+      this.features.push(rec); this.byName[name]=rec;
+    }
+    // continent focus dirs (area weighted)
+    this.continentInfo = {};
+    for(const rec of this.features){
+      if(!rec.continent) continue;
+      const ci = this.continentInfo[rec.continent] || (this.continentInfo[rec.continent]={sum:new THREE.Vector3(), members:[]});
+      ci.sum.add(rec.dir.clone().multiplyScalar(rec.area+0.04));
+      ci.members.push(rec);
+    }
+    for(const k in this.continentInfo){
+      const ci = this.continentInfo[k];
+      ci.dir = ci.sum.lengthSq()>1e-9 ? ci.sum.clone().normalize() : new THREE.Vector3(0,0,1);
+      let maxd=0; for(const m of ci.members){ const a=m.dir.angleTo(ci.dir); if(a>maxd)maxd=a; }
+      ci.spread = maxd;
+      ci.zoom = Math.max(1.58, Math.min(2.62, 1.42 + maxd*1.25));
+    }
+  }
+  hash(s){ let h=0; for(let i=0;i<s.length;i++){ h=(h*31 + s.charCodeAt(i))|0; } return h; }
+
+  // Anchor the name on the country's largest landmass, and guarantee it sits *inside*
+  // the polygon (the raw centroid of e.g. France lands in the Atlantic near Spain because
+  // of overseas territories).
+  labelPoint(f){
+    const d3=window.d3;
+    let geom=f;
+    if(f.geometry && f.geometry.type==='MultiPolygon'){
+      let best=null, bestA=-1;
+      for(const coords of f.geometry.coordinates){
+        const poly={ type:'Feature', geometry:{ type:'Polygon', coordinates:coords } };
+        const a=d3.geoArea(poly);
+        if(a>bestA){ bestA=a; best=poly; }
+      }
+      geom=best||f;
+    }
+    let c=d3.geoCentroid(geom);
+    if(!d3.geoContains(geom,c)){
+      const b=d3.geoBounds(geom);
+      let bestC=null, bestD=1e9, found=0;
+      for(let i=0;i<400 && found<24;i++){
+        const lo=b[0][0]+Math.random()*(b[1][0]-b[0][0]);
+        const la=b[0][1]+Math.random()*(b[1][1]-b[0][1]);
+        if(d3.geoContains(geom,[lo,la])){
+          found++;
+          const dd=(lo-c[0])*(lo-c[0])+(la-c[1])*(la-c[1]);
+          if(dd<bestD){ bestD=dd; bestC=[lo,la]; }
+        }
+      }
+      if(bestC) c=bestC;
+    }
+    return c;
+  }
+
+  buildTexture(){
+    const d3 = window.d3, W=4096, H=2048;
+    const proj = d3.geoEquirectangular().scale(W/(2*Math.PI)).translate([W/2,H/2]);
+    this.proj = proj;
+    const base = document.createElement('canvas'); base.width=W; base.height=H;
+    const ctx = base.getContext('2d');
+    const path = d3.geoPath(proj, ctx);
+
+    // Ocean base
+    ctx.fillStyle = '#2c5152'; ctx.fillRect(0,0,W,H);
+    const g = ctx.createLinearGradient(0,0,0,H);
+    g.addColorStop(0,'rgba(14,32,36,.62)');
+    g.addColorStop(.32,'rgba(58,104,104,.0)');
+    g.addColorStop(.5,'rgba(86,140,136,.16)');
+    g.addColorStop(.68,'rgba(58,104,104,.0)');
+    g.addColorStop(1,'rgba(14,32,36,.62)');
+    ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+    // ocean mottling
+    ctx.save();
+    for(let i=0;i<2600;i++){
+      const x=Math.random()*W, y=Math.random()*H, r=2+Math.random()*16;
+      ctx.globalAlpha = 0.018+Math.random()*0.03;
+      ctx.fillStyle = Math.random()>.5 ? '#7fb3ab' : '#16373a';
+      ctx.beginPath(); ctx.arc(x,y,r,0,7); ctx.fill();
+    }
+    ctx.restore();
+
+    // graticule
+    ctx.strokeStyle='rgba(222,210,186,.055)'; ctx.lineWidth=1.4;
+    ctx.beginPath(); path(d3.geoGraticule10()); ctx.stroke();
+
+    // land fills
+    for(const rec of this.features){
+      ctx.beginPath(); path(rec.feature);
+      ctx.fillStyle = rec.fill; ctx.fill();
+    }
+    // land mottling / aged paper, clipped to all land
+    ctx.save();
+    ctx.beginPath();
+    for(const rec of this.features){ path(rec.feature); }
+    ctx.clip();
+    for(let i=0;i<5200;i++){
+      const x=Math.random()*W, y=Math.random()*H, r=1+Math.random()*9;
+      ctx.globalAlpha = 0.015+Math.random()*0.05;
+      ctx.fillStyle = Math.random()>.5 ? '#8b6f47' : '#efe6cf';
+      ctx.beginPath(); ctx.arc(x,y,r,0,7); ctx.fill();
+    }
+    ctx.restore();
+
+    // Country borders + coast halo are NOT baked here — they are drawn as crisp vector
+    // fat-lines (buildWorldBorders) so they stay sharp at any zoom instead of smearing
+    // into thick blobs when a small country fills the screen.
+
+    this.baseCanvas = base;
+    this.texCanvas = document.createElement('canvas'); this.texCanvas.width=W; this.texCanvas.height=H;
+    this.texCtx = this.texCanvas.getContext('2d');
+    this.buildIdMap();
+    this.redrawTexture();
+  }
+
+  // An offscreen equirectangular map where every country is filled with a unique solid
+  // colour encoding its index. The raycast hit's UV indexes straight into this — pixel-exact,
+  // no lon/lat trig, no projection ambiguity, perfectly disambiguates neighbours.
+  buildIdMap(){
+    const d3=window.d3, Wi=2048, Hi=1024;
+    const proj=d3.geoEquirectangular().scale(Wi/(2*Math.PI)).translate([Wi/2,Hi/2]);
+    const cnv=document.createElement('canvas'); cnv.width=Wi; cnv.height=Hi;
+    const ctx=cnv.getContext('2d',{willReadFrequently:true});
+    ctx.imageSmoothingEnabled=false;
+    ctx.fillStyle='#000'; ctx.fillRect(0,0,Wi,Hi);
+    const path=d3.geoPath(proj,ctx);
+    this.features.forEach((rec,i)=>{
+      const id=i+1; ctx.fillStyle='rgb('+(id&255)+','+((id>>8)&255)+',0)';
+      ctx.beginPath(); path(rec.feature); ctx.fill();
+    });
+    this.idCanvas=cnv; this.idCtx=ctx; this.idW=Wi; this.idH=Hi;
+    this._idData=ctx.getImageData(0,0,Wi,Hi).data;
+  }
+
+  // Country under the cursor via the UV of the sphere hit → id-map pixel.
+  pickCountry(cx,cy){
+    if(!this.idCtx || !this.mesh) return null;
+    const THREE=window.THREE, rect=this.renderer.domElement.getBoundingClientRect();
+    const ndc=new THREE.Vector2(((cx-rect.left)/rect.width)*2-1, -((cy-rect.top)/rect.height)*2+1);
+    this.ray.setFromCamera(ndc, this.camera);
+    const hit=this.ray.intersectObject(this.mesh,false);
+    if(!hit.length || !hit[0].uv) return null;
+    const px=Math.floor(hit[0].uv.x*this.idW);
+    const py=Math.floor((1-hit[0].uv.y)*this.idH);
+    // 3×3 vote dodges anti-aliased country borders
+    const cnt={}; const D=this._idData, W=this.idW, H=this.idH;
+    for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
+      const x=Math.max(0,Math.min(W-1,px+dx)), y=Math.max(0,Math.min(H-1,py+dy));
+      const o=(y*W+x)*4; const id=D[o]|(D[o+1]<<8);
+      if(id) cnt[id]=(cnt[id]||0)+((dx|dy)===0?2:1);
+    }
+    let best=0,bestN=0; for(const k in cnt){ if(cnt[k]>bestN){bestN=cnt[k];best=+k;} }
+    return best ? (this.features[best-1]||null) : null;
+  }
+
+  redrawTexture(){
+    const ctx = this.texCtx, W=this.texCanvas.width, H=this.texCanvas.height;
+    ctx.clearRect(0,0,W,H);
+    ctx.drawImage(this.baseCanvas,0,0);
+    const path = window.d3.geoPath(this.proj, ctx);
+    if(this.state.view==='country' && this.provinces && this.provinces.length){
+      // Province borders are drawn as crisp vector fat-lines (buildProvinceBorders). Here we
+      // only paint the hovered region's soft highlight glow; its sharp outline is a vector line.
+      if(this.hiRegion){
+        ctx.save();
+        ctx.shadowColor='rgba(208,138,52,.9)'; ctx.shadowBlur=20;
+        ctx.fillStyle='rgba(226,160,72,.62)';
+        ctx.beginPath(); path(this.hiRegion.feature); ctx.fill();
+        ctx.restore();
+        ctx.fillStyle='rgba(206,144,64,.4)'; ctx.beginPath(); path(this.hiRegion.feature); ctx.fill();
+      }
+    } else if(this.hiNames && this.hiNames.size){
+      ctx.save();
+      ctx.shadowColor = 'rgba(240,200,120,.85)'; ctx.shadowBlur = 26;
+      ctx.fillStyle = 'rgba(236,196,120,.5)';
+      for(const n of this.hiNames){ const rec=this.byName[n]; if(!rec)continue; ctx.beginPath(); path(rec.feature); ctx.fill(); }
+      ctx.restore();
+      ctx.fillStyle = 'rgba(244,212,150,.32)';
+      for(const n of this.hiNames){ const rec=this.byName[n]; if(!rec)continue; ctx.beginPath(); path(rec.feature); ctx.fill(); }
+      ctx.lineJoin='round'; ctx.lineWidth=2.6; ctx.strokeStyle='#3a2414';
+      for(const n of this.hiNames){ const rec=this.byName[n]; if(!rec)continue; ctx.beginPath(); path(rec.feature); ctx.stroke(); }
+    }
+    if(this.texture) this.texture.needsUpdate = true;
+  }
+
+  // ---- Crisp vector borders (three.js fat-lines) ----------------------------------------
+  // Borders live as world-welded LineSegments2 on a thin shell above the globe, so they stay
+  // pixel-sharp at any zoom instead of being baked into the (heavily magnified) map texture.
+  _lineMat(color, widthPx, opacity){
+    const THREE=window.THREE;
+    const el=this.mountEl;
+    const m=new THREE.LineMaterial({ color, linewidth:widthPx, transparent:true, opacity:opacity==null?1:opacity, depthTest:true });
+    m.resolution.set(el?el.clientWidth||window.innerWidth:window.innerWidth, el?el.clientHeight||window.innerHeight:window.innerHeight);
+    (this._lineMats || (this._lineMats=[])).push(m);
+    return m;
+  }
+  // Build a flat [x1,y1,z1, x2,y2,z2, …] segment-pair array tracing every ring of the given
+  // GeoJSON features, projected onto a sphere of radius R. Long edges are densified so the
+  // chords hug the surface (and never dip inside the globe to be clipped).
+  _segsFromFeatures(features, R){
+    const out=[]; const maxAng=0.035; // ~2° steps
+    const push=(d)=>{ out.push(d.x*R, d.y*R, d.z*R); };
+    const ring=(coords)=>{
+      let prev=this.geoDir(coords[0][0], coords[0][1]);
+      for(let i=1;i<coords.length;i++){
+        const cur=this.geoDir(coords[i][0], coords[i][1]);
+        const ang=prev.angleTo(cur);
+        const n=Math.max(1, Math.ceil(ang/maxAng));
+        let last=prev;
+        for(let s=1;s<=n;s++){
+          const t=s/n;
+          const nx=prev.clone().lerp(cur, t).normalize();
+          push(last); push(nx);   // one segment pair
+          last=nx;
+        }
+        prev=cur;
+      }
+    };
+    for(const f of features){
+      const g=f && f.geometry; if(!g) continue;
+      if(g.type==='Polygon') for(const r of g.coordinates) ring(r);
+      else if(g.type==='MultiPolygon') for(const poly of g.coordinates) for(const r of poly) ring(r);
+    }
+    return out;
+  }
+  _makeLines(features, R, color, widthPx, opacity){
+    const THREE=window.THREE;
+    const positions=this._segsFromFeatures(features, R);
+    if(!positions.length) return null;
+    const geom=new THREE.LineSegmentsGeometry();
+    geom.setPositions(positions);
+    const mesh=new THREE.LineSegments2(geom, this._lineMat(color, widthPx, opacity));
+    mesh.computeLineDistances && mesh.computeLineDistances();
+    mesh.renderOrder=3;
+    return mesh;
+  }
+  // The fat-line helpers (examples/js/lines) attach to the global THREE, but only once it
+  // exists — so we inject them in strict order *after* three.min.js has finished, rather than
+  // from <helmet> where script execution order isn't guaranteed.
+  async ensureLineLibs(){
+    const THREE=window.THREE;
+    if(THREE && THREE.LineSegments2) return true;
+    const lineLibs = [
+      (window.__resources && window.__resources.lineSegGeom) || 'https://unpkg.com/three@0.128.0/examples/js/lines/LineSegmentsGeometry.js',
+      (window.__resources && window.__resources.lineMat)     || 'https://unpkg.com/three@0.128.0/examples/js/lines/LineMaterial.js',
+      (window.__resources && window.__resources.lineSegs2)   || 'https://unpkg.com/three@0.128.0/examples/js/lines/LineSegments2.js'
+    ];
+    for(const src of lineLibs){
+      try{ await new Promise((res,rej)=>{ const s=document.createElement('script'); s.src=src; s.onload=res; s.onerror=rej; document.head.appendChild(s); }); }
+      catch(_){ return false; }
+    }
+    return !!(window.THREE && window.THREE.LineSegments2);
+  }
+  buildWorldBorders(){
+    const THREE=window.THREE;
+    if(!this.globe || !THREE.LineSegments2) return;
+    this.borderGroup = new THREE.Group();
+    this.globe.add(this.borderGroup);
+    const feats=this.features.map(r=>r.feature);
+    // pale coast halo (wider, behind) then dark ink (thinner, in front)
+    const halo=this._makeLines(feats, 1.0011, 0xf5ecd6, 3.4, 0.5);
+    const ink =this._makeLines(feats, 1.0020, 0x3a2414, 1.5, 0.95);
+    if(halo){ halo.renderOrder=2; this.borderGroup.add(halo); }
+    if(ink){ ink.renderOrder=3; this.borderGroup.add(ink); }
+  }
+  buildProvinceBorders(){
+    const THREE=window.THREE;
+    this.clearProvinceBorders();
+    if(!this.provinces || !this.provinces.length || !THREE.LineSegments2) return;
+    this.provBorderGroup = new THREE.Group();
+    this.globe.add(this.provBorderGroup);
+    const feats=this.provinces.map(p=>p.feature);
+    const mesh=this._makeLines(feats, 1.0028, 0x2c1a0e, 1.5, 0.85);
+    if(mesh){ mesh.renderOrder=4; this.provBorderGroup.add(mesh); }
+  }
+  clearProvinceBorders(){
+    const dispose=(grp)=>{ if(!grp) return; if(this.globe) this.globe.remove(grp);
+      grp.traverse(o=>{ if(o.geometry) o.geometry.dispose(); if(o.material) o.material.dispose(); }); };
+    dispose(this.provBorderGroup); this.provBorderGroup=null;
+    dispose(this.hiBorderGroup); this.hiBorderGroup=null;
+  }
+  updateHiBorder(){
+    const THREE=window.THREE;
+    if(this.hiBorderGroup){ this.globe.remove(this.hiBorderGroup);
+      this.hiBorderGroup.traverse(o=>{ if(o.geometry)o.geometry.dispose(); if(o.material)o.material.dispose(); });
+      this.hiBorderGroup=null; }
+    if(!this.hiRegion || !THREE.LineSegments2) return;
+    this.hiBorderGroup=new THREE.Group(); this.globe.add(this.hiBorderGroup);
+    const mesh=this._makeLines([this.hiRegion.feature], 1.0034, 0xf0a838, 2.6, 1);
+    if(mesh){ mesh.renderOrder=5; this.hiBorderGroup.add(mesh); }
+  }
+
+  initThree(){
+    const THREE = window.THREE;
+    const el = this.mountEl;
+    const w = el.clientWidth || window.innerWidth, h = el.clientHeight || window.innerHeight;
+    this.scene = new THREE.Scene();
+    this.camera = new THREE.PerspectiveCamera(42, w/h, 0.012, 100);
+    this.camera.position.set(0,0,2.9);
+    this.renderer = new THREE.WebGLRenderer({ antialias:true, alpha:true, preserveDrawingBuffer:true });
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio||1, 2));
+    this.renderer.setSize(w,h);
+    el.appendChild(this.renderer.domElement);
+    this.renderer.domElement.style.display='block';
+
+    this.texture = new THREE.CanvasTexture(this.texCanvas);
+    this.texture.anisotropy = this.renderer.capabilities.getMaxAnisotropy();
+    this.texture.minFilter = THREE.LinearMipmapLinearFilter;
+
+    const geo = new THREE.SphereGeometry(1, 128, 128);
+    const mat = new THREE.MeshStandardMaterial({
+      map:this.texture, roughness:0.96, metalness:0.0,
+      emissiveMap:this.texture, emissive:new THREE.Color('#b89366'), emissiveIntensity:0.34
+    });
+    this.mesh = new THREE.Mesh(geo, mat);
+    this.globe = new THREE.Group();
+    this.globe.add(this.mesh);
+    // initial orientation: bring Africa/Europe to front
+    this.globe.rotation.y = -0.5;
+    this.scene.add(this.globe);
+
+    // inner shading sphere for subtle depth
+    this.ambientLight = new THREE.AmbientLight(0xfff1d8, 0.92); this.scene.add(this.ambientLight);
+    const dir = new THREE.DirectionalLight(0xfff0d0, 0.5); dir.position.set(1.4,0.9,1.6); this.scene.add(dir); this.dirLight=dir;
+    const rim = new THREE.DirectionalLight(0x6fb0b0, 0.22); rim.position.set(-1.6,-0.4,-1.2); this.scene.add(rim);
+
+    // atmosphere glow
+    const glowMat = new THREE.ShaderMaterial({
+      uniforms:{ c:{value:0.55}, p:{value:3.6}, op:{value:1.0}, glowColor:{value:new THREE.Color('#5fb0ad')} },
+      vertexShader:'varying vec3 vN; void main(){ vN=normalize(normalMatrix*normal); gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }',
+      fragmentShader:'uniform vec3 glowColor; uniform float c; uniform float p; uniform float op; varying vec3 vN; void main(){ float i=pow(c-dot(vN,vec3(0.0,0.0,1.0)),p); i=clamp(i,0.0,1.0)*op; gl_FragColor=vec4(glowColor,1.0)*i; }',
+      side:THREE.BackSide, blending:THREE.AdditiveBlending, transparent:true, depthWrite:false
+    });
+    const glow = new THREE.Mesh(new THREE.SphereGeometry(1, 64, 64), glowMat);
+    glow.scale.setScalar(1.22);
+    this.scene.add(glow); this.glowMesh=glow;
+    // warm inner-lit halo
+    const haloMat = new THREE.ShaderMaterial({
+      uniforms:{ op:{value:1.0}, glowColor:{value:new THREE.Color('#e9c98a')} },
+      vertexShader:'varying vec3 vN; void main(){ vN=normalize(normalMatrix*normal); gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }',
+      fragmentShader:'uniform vec3 glowColor; uniform float op; varying vec3 vN; void main(){ float i=pow(0.62-dot(vN,vec3(0.0,0.0,1.0)),6.0); i=clamp(i,0.0,1.0)*0.6*op; gl_FragColor=vec4(glowColor,1.0)*i; }',
+      side:THREE.BackSide, blending:THREE.AdditiveBlending, transparent:true, depthWrite:false
+    });
+    const halo = new THREE.Mesh(new THREE.SphereGeometry(1,48,48), haloMat);
+    halo.scale.setScalar(1.07);
+    this.scene.add(halo); this.haloMesh=halo;
+
+    this.ray = new THREE.Raycaster();
+
+    const dom = this.renderer.domElement;
+    dom.addEventListener('pointerdown', e=>this.onPointerDown(e));
+    dom.addEventListener('pointermove', e=>this.onPointerMove(e));
+    window.addEventListener('pointerup', e=>this.onPointerUp(e));
+    window.addEventListener('pointercancel', e=>this.onPointerUp(e));
+    dom.addEventListener('wheel', e=>this.onWheel(e), {passive:false});
+
+    this._onResize = ()=>this.onResize();
+    window.addEventListener('resize', this._onResize);
+    window.__strata = this;
+  }
+
+  renderFrame(){ if(this.renderer){ this.updateAtmosphere(); this.updateLabels(); this.renderer.render(this.scene, this.camera); } }
+
+  updateAtmosphere(){
+    if(!this.glowMesh) return;
+    // Drive lighting off the view, not raw zoom: a country fills the screen even at a
+    // modest zoom, so the warm glow tuned for the small world-globe would flood it.
+    const target = this.state.view==='country' ? 0 : this.state.view==='continent' ? 0.55 : 1;
+    this._lit = (this._lit==null) ? target : this._lit + (target-this._lit)*0.09;
+    const t=this._lit;
+    const ha=Math.max(0,Math.min(1,(t-0.5)/0.5));
+    this.glowMesh.material.uniforms.op.value=ha;
+    this.haloMesh.material.uniforms.op.value=ha;
+    if(this.mesh) this.mesh.material.emissiveIntensity = 0.1 + 0.24*t;
+    if(this.ambientLight) this.ambientLight.intensity = 0.68 + 0.24*t;
+    if(this.dirLight) this.dirLight.intensity = 0.26 + 0.24*t;
+  }
+
+  onResize(){
+    if(!this.renderer) return;
+    const el=this.mountEl, w=el.clientWidth, h=el.clientHeight;
+    this.camera.aspect=w/h; this.camera.updateProjectionMatrix();
+    this.renderer.setSize(w,h);
+    if(this._lineMats) for(const m of this._lineMats) m.resolution.set(w,h);
+  }
+
+  async buildLabels(){
+    const THREE=window.THREE;
+    this.labels = [];
+    try{ if(document.fonts && document.fonts.ready){ await document.fonts.ready; } }catch(_){}
+    this.labelGroup = new THREE.Group();
+    this.globe.add(this.labelGroup);   // welded to the globe — rotates in the same WebGL pass
+    for(const k in this.continentInfo){
+      const spr=this.makeLabelSprite(k.toUpperCase(),'continent');
+      spr.position.copy(this.continentInfo[k].dir.clone().multiplyScalar(1.02));
+      this.labelGroup.add(spr);
+      this.labels.push({ sprite:spr, dir:this.continentInfo[k].dir, kind:'continent', continent:k });
+    }
+    for(const rec of this.features){
+      if(!rec.continent || rec.area < 0.0009) continue;
+      const spr=this.makeLabelSprite(this.displayName(rec.name).toUpperCase(),'country');
+      spr.position.copy(rec.dir.clone().multiplyScalar(1.02));
+      this.labelGroup.add(spr);
+      this.labels.push({ sprite:spr, dir:rec.dir, kind:'country', continent:rec.continent, name:rec.name });
+    }
+    this.refreshLabelVisibility();
+    await this.ensureLineLibs();
+    this.buildWorldBorders();
+  }
+  displayName(n){ return (DATA_ALIAS[n] || n); }
+
+  makeLabelSprite(text, kind){
+    const THREE=window.THREE;
+    const fs = kind==='continent' ? 60 : kind==='region' ? 30 : 38;
+    const ls = kind==='continent' ? 9 : kind==='region' ? 2 : 3;
+    const fam = kind==='continent' ? "'Playfair Display', serif" : "'Public Sans', sans-serif";
+    const font = '600 '+fs+'px '+fam;
+    const m=document.createElement('canvas').getContext('2d'); m.font=font;
+    const chars=[...text];
+    let tw=0; for(const c of chars){ tw+=m.measureText(c).width+ls; } tw-=ls;
+    const padX=44, padY=26;
+    const W=Math.max(2,Math.ceil(tw))+padX*2, H=Math.ceil(fs)+padY*2;
+    const cnv=document.createElement('canvas'); cnv.width=W; cnv.height=H;
+    const ctx=cnv.getContext('2d');
+    ctx.font=font; ctx.textBaseline='middle'; ctx.lineJoin='round';
+    let x=padX; const y=H/2+1;
+    if(kind==='region'){
+      // region names sit over bright parchment land — dark ink with a pale halo reads best
+      ctx.shadowColor='rgba(252,246,230,0.9)'; ctx.shadowBlur=8; ctx.shadowOffsetY=0;
+      ctx.strokeStyle='rgba(250,244,228,0.95)'; ctx.lineWidth=5;
+      for(const ch of chars){ ctx.strokeText(ch,x,y); x+=ctx.measureText(ch).width+ls; }
+      ctx.shadowBlur=0; ctx.fillStyle='#28160c';
+      x=padX;
+      for(const ch of chars){ ctx.fillText(ch,x,y); x+=ctx.measureText(ch).width+ls; }
+    } else {
+    // dark ink halo for legibility over land or ocean
+    ctx.shadowColor='rgba(14,7,3,0.85)'; ctx.shadowBlur=10; ctx.shadowOffsetY=1;
+    ctx.strokeStyle='rgba(26,13,7,0.96)'; ctx.lineWidth = kind==='continent' ? 10 : 6.5;
+    for(const ch of chars){ ctx.strokeText(ch,x,y); x+=ctx.measureText(ch).width+ls; }
+    // cream fill on top
+    ctx.shadowBlur=0; ctx.fillStyle = kind==='continent' ? '#f8efda' : '#fdf6e6';
+    x=padX;
+    for(const ch of chars){ ctx.fillText(ch,x,y); x+=ctx.measureText(ch).width+ls; }
+    }
+    const tex=new THREE.CanvasTexture(cnv);
+    tex.minFilter=THREE.LinearFilter; tex.anisotropy=4;
+    const mat=new THREE.SpriteMaterial({ map:tex, transparent:true, depthTest:true, depthWrite:false });
+    const spr=new THREE.Sprite(mat);
+    const worldH = kind==='continent' ? 0.072 : kind==='region' ? 0.022 : 0.034;
+    spr.scale.set(worldH*(W/H), worldH, 1);
+    spr.renderOrder = 5;
+    return spr;
+  }
+
+  refreshLabelVisibility(){
+    if(!this.labels) return;
+    const view=this.state.view, ac=this.state.activeContinent, aco=this.state.activeCountry;
+    for(const L of this.labels){
+      L.show = (L.kind==='continent') ? (view==='world')
+             : (L.kind==='country') ? (view==='continent' && L.continent===ac)
+             : (view==='country' && L.country===aco);
+      if(!L.show) L.sprite.visible=false;
+    }
+  }
+
+  rotateGlobe(dx,dy){
+    const THREE=window.THREE, k=0.005;
+    const qx=new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0), dx*k);
+    const qy=new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0), dy*k);
+    this.globe.quaternion.premultiply(qx).premultiply(qy);
+  }
+
+  easeIO(t){ return t<0.5 ? 2*t*t : 1-Math.pow(-2*t+2,2)/2; }
+
+  animate(){
+    this._raf = requestAnimationFrame(this._animate);
+    const now=performance.now(); const dt=Math.min(0.05,(now-this._last)/1000); this._last=now;
+    if(this.focusAnim && this.focusAnim.active){
+      const f=this.focusAnim; f.t += dt/f.dur; const e = f.t>=1?1:this.easeIO(f.t);
+      this.globe.quaternion.slerpQuaternions(f.fromQ, f.toQ, e);
+      this.camera.position.z = f.fromZ + (f.toZ-f.fromZ)*e;
+      if(f.t>=1){ f.active=false; }
+    } else if(!this.dragging){
+      if(Math.abs(this.vel.x)>0.012 || Math.abs(this.vel.y)>0.012){
+        this.rotateGlobe(this.vel.x, this.vel.y);
+        this.vel.x*=0.935; this.vel.y*=0.935;
+      } else if(this.state.view==='world' && now-this.lastInteract>2400){
+        this.rotateGlobe(0.16,0);
+      }
+    }
+    this.updateAtmosphere();
+    this.updateLabels();
+    this.renderer.render(this.scene, this.camera);
+  }
+
+  updateLabels(){
+    if(!this.labels || !this.renderer) return;
+    const THREE=window.THREE, cam=this.camera;
+    const camDir=cam.position.clone().normalize();
+    const q=this.globe.quaternion;
+    const right=new THREE.Vector3().setFromMatrixColumn(cam.matrixWorld,0);
+    const up=new THREE.Vector3().setFromMatrixColumn(cam.matrixWorld,1);
+    const el=this.renderer.domElement, W=el.clientWidth||1, H=el.clientHeight||1;
+    const wp=new THREE.Vector3(), tmp=new THREE.Vector3(), pv=new THREE.Vector3();
+    const toPx=(v)=>{ pv.copy(v).project(cam); return [(pv.x*0.5+0.5)*W, (-pv.y*0.5+0.5)*H]; };
+    const cand=[];
+    for(const L of this.labels){
+      if(!L.show){ L.sprite.visible=false; continue; }
+      const f=L.dir.clone().applyQuaternion(q).dot(camDir);
+      if(f<=0.12){ L.sprite.visible=false; continue; }
+      L.sprite.getWorldPosition(wp);
+      const c=toPx(wp);
+      const er=toPx(tmp.copy(wp).addScaledVector(right, L.sprite.scale.x*0.5));
+      const eu=toPx(tmp.copy(wp).addScaledVector(up, L.sprite.scale.y*0.5));
+      const hw=Math.abs(er[0]-c[0])+5, hh=Math.abs(eu[1]-c[1])+2;
+      L._box=[c[0]-hw, c[1]-hh, c[0]+hw, c[1]+hh]; L._f=f;
+      cand.push(L);
+    }
+    // label priority: continents always win, then larger countries; declutter by hiding collisions
+    cand.sort((a,b)=> ((b.kind==='continent')?1e9:b.area||0) - ((a.kind==='continent')?1e9:a.area||0));
+    const placed=[];
+    for(const L of cand){
+      const b=L._box; let hit=false;
+      for(const p of placed){ if(!(b[2]<p[0]||b[0]>p[2]||b[3]<p[1]||b[1]>p[3])){ hit=true; break; } }
+      if(hit){ L.sprite.visible=false; }
+      else {
+        placed.push(b); L.sprite.visible=true;
+        L.sprite.material.opacity = Math.min(1,(L._f-0.12)/0.2);
+      }
+    }
+  }
+
+  // ---- interaction ----
+  onPointerDown(e){
+    try{ this.renderer.domElement.setPointerCapture(e.pointerId); }catch(_){}
+    this.pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    this.lastInteract=performance.now();
+    if(this.focusAnim) this.focusAnim.active=false;
+    if(this.pointers.size===1){
+      this.dragging=true; this.moved=0; this.prev={x:e.clientX,y:e.clientY}; this.vel={x:0,y:0};
+      this.renderer.domElement.style.cursor='grabbing';
+    } else if(this.pointers.size===2){
+      this.dragging=false; const p=[...this.pointers.values()];
+      this.pinchDist=Math.hypot(p[0].x-p[1].x, p[0].y-p[1].y);
+    }
+  }
+  onPointerMove(e){
+    if(this.pointers.has(e.pointerId)) this.pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(this.pointers.size>=2){
+      this.lastInteract=performance.now();
+      const p=[...this.pointers.values()]; const d=Math.hypot(p[0].x-p[1].x,p[0].y-p[1].y);
+      if(this.pinchDist){ const z=this.camera.position.z*(this.pinchDist/d); this.camera.position.z=Math.max(1.045,Math.min(4.4,z)); }
+      this.pinchDist=d; return;
+    }
+    if(this.dragging){
+      this.lastInteract=performance.now();
+      const dx=e.clientX-this.prev.x, dy=e.clientY-this.prev.y;
+      this.prev={x:e.clientX,y:e.clientY}; this.moved+=Math.abs(dx)+Math.abs(dy);
+      this.rotateGlobe(dx,dy); this.vel={x:dx,y:dy};
+    } else if(!this.isTouch){
+      this.onHover(e.clientX,e.clientY);
+    }
+  }
+  onPointerUp(e){
+    const single=(this.pointers.size===1), moved=this.moved;
+    this.pointers.delete(e.pointerId);
+    if(this.pointers.size<2) this.pinchDist=0;
+    if(this.pointers.size===0){
+      this.dragging=false; this.renderer.domElement.style.cursor='grab'; this.lastInteract=performance.now();
+      if(single && moved<7) this.onTap(e.clientX,e.clientY);
+    } else if(this.pointers.size===1){
+      const p=[...this.pointers.values()][0]; this.prev={x:p.x,y:p.y};
+    }
+  }
+  onWheel(e){
+    e.preventDefault(); this.lastInteract=performance.now();
+    if(this.focusAnim) this.focusAnim.active=false;
+    const z=this.camera.position.z*(1+e.deltaY*0.0012);
+    this.camera.position.z=Math.max(1.045,Math.min(4.4,z));
+  }
+
+  pick(cx,cy){
+    const THREE=window.THREE, rect=this.renderer.domElement.getBoundingClientRect();
+    const ndc=new THREE.Vector2(((cx-rect.left)/rect.width)*2-1, -((cy-rect.top)/rect.height)*2+1);
+    this.ray.setFromCamera(ndc, this.camera);
+    const hit=this.ray.intersectObject(this.mesh,false);
+    if(!hit.length) return null;
+    const p=this.mesh.worldToLocal(hit[0].point.clone());
+    const r=p.length();
+    const lat=90 - Math.acos(Math.max(-1,Math.min(1,p.y/r)))/Math.PI*180;
+    let lon=Math.atan2(p.z,-p.x)/Math.PI*180 - 180;   // sphere UV is offset 180° from geoDir
+    while(lon < -180) lon += 360;
+    while(lon > 180) lon -= 360;
+    return [lon,lat];
+  }
+  countryAt(lon,lat){
+    const d3=window.d3;
+    for(const rec of this.features){
+      const b=rec.bounds;
+      if(lat < b[0][1]-1.5 || lat > b[1][1]+1.5) continue;
+      if(d3.geoContains(rec.feature,[lon,lat])) return rec;
+    }
+    return null;
+  }
+  // The painted geometry pick is unreliable, so we drive everything off the floating
+  // name tags: find the visible, front-facing country tag whose on-screen position is
+  // nearest the cursor (within a generous radius), rather than requiring an exact hit.
+  labelAt(cx,cy,maxPx){
+    if(!this.labels || !this.renderer) return null;
+    const THREE=window.THREE, rect=this.renderer.domElement.getBoundingClientRect();
+    const camDir=this.camera.position.clone().normalize();
+    const q=this.globe.quaternion, wp=new THREE.Vector3();
+    let best=null, bestD=Infinity;
+    for(const L of this.labels){
+      if(!L.sprite.visible || L.kind!=='country') continue;
+      if(L.dir.clone().applyQuaternion(q).dot(camDir) <= 0.12) continue; // front hemisphere only
+      L.sprite.getWorldPosition(wp);
+      const p=wp.clone().project(this.camera);
+      if(p.z > 1) continue;
+      const sx=rect.left+(p.x*0.5+0.5)*rect.width;
+      const sy=rect.top+(-p.y*0.5+0.5)*rect.height;
+      const d=Math.hypot(sx-cx, sy-cy);
+      if(d<bestD){ bestD=d; best=L; }
+    }
+    return (best && bestD <= (maxPx||92)) ? best : null;
+  }
+
+  onHover(cx,cy){
+    const now=performance.now(); if(now-this._lastHover<32) return; this._lastHover=now;
+    if(this.state.view==='country'){
+      const p=this.provinces ? this.pickRegion(cx,cy) : null;
+      const cur=this.hiRegion?this.hiRegion.name:null, nxt=p?p.name:null;
+      if(cur!==nxt){ this.hiRegion=p; this.redrawTexture(); this.updateHiBorder(); }
+      this.renderer.domElement.style.cursor = p ? 'pointer' : 'grab';
+      return;
+    }
+    let names=new Set(); let actionable=false;
+    const rec=this.pickCountry(cx,cy);
+    if(rec && rec.continent){
+      if(this.state.view==='world'){
+        for(const m of this.continentInfo[rec.continent].members) names.add(m.name);
+        actionable=true;
+      } else if(rec.continent===this.state.activeContinent){
+        names.add(rec.name); actionable=true;
+      }
+    }
+    // diff
+    let same = names.size===this.hiNames.size;
+    if(same){ for(const n of names){ if(!this.hiNames.has(n)){ same=false; break; } } }
+    if(!same){ this.hiNames=names; this.redrawTexture(); }
+    this.renderer.domElement.style.cursor = actionable ? 'pointer' : 'grab';
+  }
+
+  onTap(cx,cy){
+    if(this.state.view==='world'){
+      const rec=this.pickCountry(cx,cy);
+      if(rec && rec.continent) this.focusContinent(rec.continent);
+      else if(this.state.detail) this.setState({detail:null});
+    } else if(this.state.view==='continent'){
+      const rec=this.pickCountry(cx,cy);
+      if(rec && rec.continent===this.state.activeContinent) this.focusCountry(rec.name);
+      else if(this.state.detail) this.setState({ detail:null });
+    } else {
+      const p=this.provinces ? this.pickRegion(cx,cy) : null;
+      if(p) this.openRegion(p,cx,cy);
+      else if(this.state.detail) this.setState({ detail:null });
+    }
+  }
+
+  dataOf(name){
+    const A=window.ATLAS_DATA; if(!A) return null;
+    return A.countries[name] || A.countries[DATA_ALIAS[name]] || null;
+  }
+
+  focusContinent(name){
+    const THREE=window.THREE, ci=this.continentInfo[name];
+    if(!ci) return;
+    this.hiNames=new Set(); this.hiRegion=null; this.provinces=null; this.clearRegionLabels();
+    const fromQ=this.globe.quaternion.clone();
+    const toQ=new THREE.Quaternion().setFromUnitVectors(ci.dir.clone().normalize(), new THREE.Vector3(0,0,1));
+    this.focusAnim={ active:true, t:0, dur:1.15, fromQ, toQ, fromZ:this.camera.position.z, toZ:ci.zoom };
+    this.lastInteract=performance.now()+100000;
+    this.setState({ view:'continent', activeContinent:name, activeCountry:null, detail:null, regionLoading:false, regionErr:null }, ()=>this.refreshLabelVisibility());
+    this.redrawTexture();
+  }
+
+  countryZoom(rec){
+    const b=rec.bounds;
+    const midlat=(b[0][1]+b[1][1])/2*Math.PI/180;
+    let dLon=(b[1][0]-b[0][0]); if(dLon>180) dLon=360-dLon;   // antimeridian guard
+    dLon*=Math.cos(midlat);
+    const dLat=(b[1][1]-b[0][1]);
+    const ang=Math.sqrt(dLon*dLon+dLat*dLat);   // degrees, diagonal extent
+    return Math.max(1.32, Math.min(2.45, 1.16 + ang*0.019));
+  }
+
+  focusCountry(name){
+    const THREE=window.THREE, rec=this.byName[name];
+    if(!rec) return;
+    this.hiNames=new Set(); this.hiRegion=null; this.provinces=null; this.clearRegionLabels();
+    const fromQ=this.globe.quaternion.clone();
+    const toQ=new THREE.Quaternion().setFromUnitVectors(rec.dir.clone().normalize(), new THREE.Vector3(0,0,1));
+    this.focusAnim={ active:true, t:0, dur:1.05, fromQ, toQ, fromZ:this.camera.position.z, toZ:this.countryZoom(rec) };
+    this.lastInteract=performance.now()+100000;
+    this.setState({ view:'country', activeCountry:name, detail:null, regionLoading:true, regionErr:null }, ()=>this.refreshLabelVisibility());
+    this.redrawTexture();
+    this.loadProvinces(name);
+  }
+
+  // geoBoundaries winds rings for the planar RFC 7946 right-hand rule, but d3's spherical
+  // functions (geoArea/geoCentroid/geoContains/geoBounds) use the OPPOSITE convention — they
+  // want exterior rings clockwise. Wound the other way, d3 treats each polygon as the whole-
+  // sphere complement, so a state's centroid comes back as its antipode, out in the wrong
+  // ocean. Rewind to exterior-CW / holes-CCW so the spherical math (label placement AND click-
+  // picking) is correct. geoPath is winding-agnostic, so the rendered borders are unaffected.
+  rewindFeature(f){
+    const g=f && f.geometry; if(!g) return f;
+    const ringArea=(ring)=>{ let a=0; for(let i=0,n=ring.length,j=n-1;i<n;j=i++){ a+=ring[j][0]*ring[i][1]-ring[i][0]*ring[j][1]; } return a/2; };
+    const fixPoly=(poly)=>{ for(let r=0;r<poly.length;r++){ const ring=poly[r]; const ccw=ringArea(ring)>0; const wantCCW=(r!==0); if(ccw!==wantCCW) ring.reverse(); } };
+    if(g.type==='Polygon') fixPoly(g.coordinates);
+    else if(g.type==='MultiPolygon') g.coordinates.forEach(fixPoly);
+    return f;
+  }
+
+  async loadProvinces(name){
+    const iso = NAME_ISO3[name] || NAME_ISO3[DATA_ALIAS[name]] || null;
+    if(!iso){ this.provinces=[]; this.setState({ regionLoading:false, regionErr:'Province-level boundaries aren\u2019t available for this country.' }); return; }
+    try{
+      let gj=this.provCache[iso];
+      if(!gj){
+        const url='https://media.githubusercontent.com/media/wmgeolab/geoBoundaries/main/releaseData/gbOpen/'+iso+'/ADM1/geoBoundaries-'+iso+'-ADM1_simplified.geojson';
+        const r=await fetch(url); if(!r.ok) throw new Error('http '+r.status);
+        gj=await r.json();
+        for(const f of (gj.features||[])) this.rewindFeature(f);
+        this.provCache[iso]=gj;
+      }
+      if(this.state.view!=='country' || this.state.activeCountry!==name) return; // navigated away mid-fetch
+      const d3=window.d3;
+      this.provinces=(gj.features||[]).map(f=>{
+        const c=this.labelPoint(f);
+        return { name:fixMojibake((f.properties.shapeName||'').trim()), feature:f, lon:c[0], lat:c[1], dir:this.geoDir(c[0],c[1]), bounds:d3.geoBounds(f), area:d3.geoArea(f) };
+      }).filter(p=>p.name);
+      this.buildRegionLabels();
+      this.redrawTexture();
+      this.setState({ regionLoading:false, regionErr: this.provinces.length?null:'No sub-regions found for this country.' });
+    }catch(e){
+      if(this.state.activeCountry!==name) return;
+      this.provinces=[]; this.setState({ regionLoading:false, regionErr:'Province boundaries could not be loaded.' });
+    }
+  }
+
+  pickRegion(cx,cy){
+    if(!this.provinces || !this.provinces.length || !this.mesh) return null;
+    const THREE=window.THREE, rect=this.renderer.domElement.getBoundingClientRect();
+    const ndc=new THREE.Vector2(((cx-rect.left)/rect.width)*2-1, -((cy-rect.top)/rect.height)*2+1);
+    this.ray.setFromCamera(ndc, this.camera);
+    const hit=this.ray.intersectObject(this.mesh,false);
+    if(!hit.length || !hit[0].uv) return null;
+    const lon=hit[0].uv.x*360-180, lat=90-(1-hit[0].uv.y)*180;
+    const d3=window.d3;
+    for(const p of this.provinces){
+      const b=p.bounds;
+      if(lat<b[0][1]-1 || lat>b[1][1]+1 || lon<b[0][0]-1 || lon>b[1][0]+1) continue;
+      if(d3.geoContains(p.feature,[lon,lat])) return p;
+    }
+    return null;
+  }
+
+  buildRegionLabels(){
+    const THREE=window.THREE;
+    this.clearRegionLabels();
+    this.regionLabels=[];
+    for(const p of this.provinces){
+      const spr=this.makeLabelSprite(p.name.toUpperCase(),'region');
+      spr.position.copy(p.dir.clone().multiplyScalar(1.02));
+      this.labelGroup.add(spr);
+      const L={ sprite:spr, dir:p.dir, kind:'region', country:this.state.activeCountry, name:p.name, area:p.area };
+      this.labels.push(L); this.regionLabels.push(L);
+    }
+    this.refreshLabelVisibility();
+    this.buildProvinceBorders();
+  }
+  clearRegionLabels(){
+    this.clearProvinceBorders();
+    if(this.regionLabels && this.regionLabels.length){
+      for(const L of this.regionLabels){
+        if(this.labelGroup) this.labelGroup.remove(L.sprite);
+        if(L.sprite.material.map) L.sprite.material.map.dispose();
+        L.sprite.material.dispose();
+        const i=this.labels.indexOf(L); if(i>=0) this.labels.splice(i,1);
+      }
+    }
+    this.regionLabels=[];
+  }
+
+  openRegion(p,cx,cy){
+    this.setState({ detail:{ kind:'region', name:p.name, country:this.state.activeCountry, x:cx, y:cy } });
+    this.fetchRegionData(this.state.activeCountry, p.name);
+  }
+
+  // Resolves a text completion from whichever backend is available:
+  // the in-environment window.claude helper, or a Netlify serverless function when deployed.
+  async completeProfile(prompt){
+    if(window.claude && window.claude.complete){
+      return await window.claude.complete(prompt);
+    }
+    const r=await fetch('/.netlify/functions/region',{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ prompt })
+    });
+    if(!r.ok){ const t=await r.text().catch(()=>''); throw new Error('fn '+r.status+' '+t); }
+    const j=await r.json();
+    return j.text||'';
+  }
+
+  async fetchRegionData(country, region){
+    const key=country+'|'+region;
+    if(!this.regionData[key]){
+      try{ const s=localStorage.getItem('strata_region_'+key); if(s) this.regionData[key]=JSON.parse(s); }catch(_){}
+    }
+    if(this.regionData[key] && !this.regionData[key].loading){ this.forceUpdate(); return; }
+    this.regionData[key]={ loading:true }; this.forceUpdate();
+    try{
+      const cdisp=this.displayName(country);
+      const prompt='You are a precise geographic atlas describing the present day, in 2026. For the first-level administrative region "'+region+'" of '+cdisp+', write three concise, factual fields specific to THIS region (not the whole country). Respond with ONLY a raw JSON object, no markdown fences, with exactly these keys: "dominant_religion", "dominant_ethnicity", "ideology_trend". Each value is 2-3 plain sentences, neutral and present-tense.';
+      const raw=await this.completeProfile(prompt);
+      const txt=String(raw).replace(/```json/gi,'').replace(/```/g,'').trim();
+      const m=txt.match(/\{[\s\S]*\}/);
+      const obj=JSON.parse(m?m[0]:txt);
+      this.regionData[key]={
+        dominant_religion:obj.dominant_religion||'\u2014',
+        dominant_ethnicity:obj.dominant_ethnicity||'\u2014',
+        ideology_trend:obj.ideology_trend||'\u2014'
+      };
+      try{ localStorage.setItem('strata_region_'+key, JSON.stringify(this.regionData[key])); }catch(_){}
+    }catch(e){
+      this.regionData[key]={ error:true, dominant_religion:'This region\u2019s profile couldn\u2019t be charted just now \u2014 tap again to retry.', dominant_ethnicity:'\u2014', ideology_trend:'\u2014' };
+    }
+    const d=this.state.detail;
+    if(d && d.kind==='region' && d.country===country && d.name===region) this.forceUpdate();
+  }
+
+  goBack(){
+    const THREE=window.THREE;
+    if(this.state.view==='country'){
+      const ci=this.continentInfo[this.state.activeContinent];
+      this.hiRegion=null; this.provinces=null; this.clearRegionLabels();
+      const fromQ=this.globe.quaternion.clone();
+      const toQ=ci ? new THREE.Quaternion().setFromUnitVectors(ci.dir.clone().normalize(), new THREE.Vector3(0,0,1)) : fromQ;
+      this.focusAnim={ active:true, t:0, dur:1.0, fromQ, toQ, fromZ:this.camera.position.z, toZ:ci?ci.zoom:2.9 };
+      this.lastInteract=performance.now()+100000;
+      this.setState({ view:'continent', activeCountry:null, detail:null, regionLoading:false, regionErr:null }, ()=>this.refreshLabelVisibility());
+      this.redrawTexture();
+    } else {
+      this.goWorld();
+    }
+  }
+  goWorld(){
+    this.hiNames=new Set(); this.hiRegion=null; this.provinces=null; this.clearRegionLabels();
+    this.focusAnim={ active:true, t:0, dur:1.0, fromQ:this.globe.quaternion.clone(), toQ:this.globe.quaternion.clone(), fromZ:this.camera.position.z, toZ:2.9 };
+    this.lastInteract=performance.now();
+    this.setState({ view:'world', activeContinent:null, activeCountry:null, detail:null, regionLoading:false, regionErr:null }, ()=>this.refreshLabelVisibility());
+    this.redrawTexture();
+  }
+
+  renderVals(){
+    this.refs();
+    const A=window.ATLAS_DATA;
+    const st=this.state, d=st.detail;
+
+    // ---- detail panel (region / country tooltip) ----
+    let dd=null, ddLoading=false, kindLabel='';
+    if(d){
+      if(d.kind==='country'){ dd=this.dataOf(d.name); kindLabel='Country'; }
+      else if(d.kind==='region'){
+        kindLabel='Region · '+this.displayName(d.country);
+        const rv=this.regionData[d.country+'|'+d.name];
+        if(rv && !rv.loading) dd=rv; else ddLoading=true;
+      }
+    }
+
+    // ---- margin info panel (current level: continent or country) ----
+    let panelKicker='', panelTitle='', pData=null, panelHint='';
+    if(st.view==='continent'){
+      panelKicker='Region'; panelTitle=st.activeContinent||'';
+      pData = A?A.continents[st.activeContinent]:null;
+      panelHint='Tap a country to zoom in.';
+    } else if(st.view==='country'){
+      panelKicker='Country'; panelTitle=this.displayName(st.activeCountry||'');
+      pData=this.dataOf(st.activeCountry);
+      panelHint = st.regionLoading ? 'Charting provinces…' : (st.regionErr ? st.regionErr : 'Tap a region for its 2026 profile.');
+    }
+
+    let tipStyle = {};
+    if(d && !st.isTouch){
+      const vw=window.innerWidth, vh=window.innerHeight, ww=352;
+      let left=d.x+18, top=d.y+14;
+      if(left+ww > vw-16) left = d.x - ww - 18;
+      if(left<16) left=16;
+      if(top+360 > vh-16) top = Math.max(16, vh-376);
+      tipStyle = { position:'fixed', left:left+'px', top:top+'px', width:ww+'px', zIndex:30,
+        background:'linear-gradient(158deg,rgba(40,29,20,.96),rgba(21,15,10,.98))',
+        border:'1px solid rgba(200,184,154,.26)', borderRadius:'3px', padding:'18px 20px 20px',
+        boxShadow:'0 24px 60px rgba(0,0,0,.6)', animation:'strfade .22s ease both' };
+    }
+
+    return {
+      mountRef:this._mountRef, labelRef:this._labelRef,
+      ready:st.ready, loading:(!st.ready && !st.error), error:st.error,
+      isWorld:st.view==='world', isContinent:st.view==='continent', isCountry:st.view==='country',
+      showCrumb:(st.view!=='world'),
+      activeContinent:st.activeContinent||'', countryTitle:this.displayName(st.activeCountry||''),
+      showPanel:((st.view==='continent'||st.view==='country') && !st.isTouch),
+      panelKicker, panelTitle,
+      panelRelig:pData?pData.dominant_religion:'—', panelEthni:pData?pData.dominant_ethnicity:'—', panelIdeo:pData?pData.ideology_trend:'—',
+      panelHint,
+      regionToast:(st.view==='country' && st.regionLoading),
+      showTip:(!!d && !st.isTouch),
+      showSheet:(!!d && st.isTouch),
+      tipStyle,
+      detailReady:(!!dd && !ddLoading), detailLoading:ddLoading,
+      detailName:d?this.displayName(d.name):'', detailKindLabel:kindLabel,
+      dRelig:dd?dd.dominant_religion:'', dEthni:dd?dd.dominant_ethnicity:'', dIdeo:dd?dd.ideology_trend:'',
+      hintLine: st.view==='world' ? (st.isTouch?'Drag to spin · pinch to zoom · tap a continent':'Drag to spin · scroll to zoom · click a continent')
+              : st.view==='continent' ? (st.isTouch?'Tap a country to zoom in':'Hover to highlight · click a country to zoom in')
+              : (st.isTouch?'Tap a region for its 2026 profile':'Hover to highlight · click a region'),
+      onBack:()=>this.goBack(),
+      onHome:()=>this.goWorld(),
+      onContinentCrumb:()=>{ if(this.state.activeContinent) this.focusContinent(this.state.activeContinent); },
+      onCloseDetail:()=>this.setState({detail:null}),
+    };
+  }
+}
+</script>
+</body>
+</html>
