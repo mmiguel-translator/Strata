@@ -2,7 +2,6 @@
   publish = "."
   functions = "netlify/functions"
 
-# Netlify's default Node for functions can be older than 18, where global
-# fetch() doesn't exist — pin 18 so the region function works.
+# Gemini's free-tier API call uses global fetch(), which needs Node 18+.
 [build.environment]
   NODE_VERSION = "18"
